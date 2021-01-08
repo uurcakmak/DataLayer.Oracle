@@ -36,17 +36,11 @@ namespace DataLayer.Oracle.Providers
 
             var conn = new OracleConnection();
 
-            try
+            conn.ConnectionString = ConnectionString;
+            conn.Open();
+            if (conn.State == ConnectionState.Open && setUser)
             {
-                conn.ConnectionString = ConnectionString;
-                conn.Open();
-            }
-            finally
-            {
-                if (conn.State == ConnectionState.Open && setUser)
-                {
-                    throw new NotImplementedException("Set user function will be added in the future");
-                }
+                throw new NotImplementedException("Set user function will be added in the future");
             }
 
             return conn;

@@ -8,7 +8,7 @@ namespace DataLayer.Oracle.Model
         /// <summary>
         /// Contains input parameter couples as parameterName:string, parameterValue:object for any PLSQL Stored Procedure
         /// </summary>
-        public List<Tuple<string, object>> InputParameters { get; set; } = new List<Tuple<string, object>>();
+        public List<Tuple<string, object>> InputParameters { get; set; }
 
         /// <summary>
         /// Contains output parameter couples as parameterName:string, parameterValue:object for any PLSQL Stored Procedure

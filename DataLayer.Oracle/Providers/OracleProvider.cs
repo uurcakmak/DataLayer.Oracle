@@ -9,7 +9,7 @@ namespace DataLayer.Oracle.Providers
 {
     public class OracleProvider : IDatabaseProvider
     {
-        const int cReturnMsgIndx = 0;
+        internal const int cReturnMsgIndx = 0;
         private const string cParamReturn = "RETURN_VALUE";
         public const string cNullValue = "NULL";
 
@@ -41,15 +41,11 @@ namespace DataLayer.Oracle.Providers
                 conn.ConnectionString = ConnectionString;
                 conn.Open();
             }
-            catch (Exception)
-            {
-                throw;
-            }
             finally
             {
                 if (conn.State == ConnectionState.Open && setUser)
                 {
-                   //todo 
+                    throw new NotImplementedException("Set user function will be added in the future");
                 }
             }
 

@@ -1,10 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
 using DataLayer.Oracle.Model;
 using Oracle.ManagedDataAccess.Client;
 // ReSharper disable InconsistentNaming
@@ -13,7 +9,7 @@ namespace DataLayer.Oracle.Providers
 {
     public class OracleProvider : IDatabaseProvider
     {
-        private const int cReturnMsgIndx = 0;
+        const int cReturnMsgIndx = 0;
         private const string cParamReturn = "RETURN_VALUE";
         public const string cNullValue = "NULL";
 
@@ -35,7 +31,7 @@ namespace DataLayer.Oracle.Providers
         {
             if (string.IsNullOrEmpty(ConnectionString))
             {
-                throw new ArgumentNullException("Connection String is null. Cannot create connection.");
+                throw new ArgumentNullException(nameof(ConnectionString), "Connection String is null. Cannot create connection.");
             }
 
             var conn = new OracleConnection();
@@ -45,7 +41,7 @@ namespace DataLayer.Oracle.Providers
                 conn.ConnectionString = ConnectionString;
                 conn.Open();
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 throw;
             }
@@ -64,7 +60,7 @@ namespace DataLayer.Oracle.Providers
         {
             if (param == null)
             {
-                throw new ArgumentNullException("Parameter Collection is null.", nameof(param.CommandText));
+                throw new ArgumentNullException(nameof(param.CommandText), "Parameter Collection is null.");
             }
 
             var conn = CreateOpenConnection(setUser);
@@ -74,7 +70,7 @@ namespace DataLayer.Oracle.Providers
             {
                 if (string.IsNullOrEmpty(param.CommandText))
                 {
-                    throw new ArgumentNullException("CommandText is null.", nameof(param.CommandText));
+                    throw new ArgumentNullException(nameof(param.CommandText), "CommandText is null.");
                 }
 
                 cmd = conn.CreateCommand();
@@ -83,9 +79,8 @@ namespace DataLayer.Oracle.Providers
 
 
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                cmd = null;
                 if (conn.State == ConnectionState.Open)
                 {
                     conn.Close();
@@ -100,12 +95,12 @@ namespace DataLayer.Oracle.Providers
         {
             if (param == null)
             {
-                throw new ArgumentNullException("Parameter Collection is null.", nameof(param.CommandText));
+                throw new ArgumentNullException(nameof(param.CommandText), "Parameter Collection is null.");
             }
 
             if (string.IsNullOrEmpty(param.CommandText))
             {
-                throw new ArgumentNullException("CommandText is null.", nameof(param.CommandText));
+                throw new ArgumentNullException(nameof(param.CommandText), "CommandText is null.");
             }
 
             conn ??= CreateOpenConnection(setUser);
@@ -116,9 +111,8 @@ namespace DataLayer.Oracle.Providers
                 cmd.CommandType = CommandType.StoredProcedure;
                 cmd.CommandText = param.CommandText;
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                cmd = null;
                 if (conn.State == ConnectionState.Open)
                 {
                     conn.Close();
@@ -133,7 +127,7 @@ namespace DataLayer.Oracle.Providers
         {
             if (cmd == null)
             {
-                throw new ArgumentNullException("Command is null.", nameof(cmd));
+                throw new ArgumentNullException(nameof(cmd), "Command is null.");
             }
 
             try

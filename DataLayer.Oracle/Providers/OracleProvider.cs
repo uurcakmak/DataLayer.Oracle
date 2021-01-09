@@ -297,13 +297,6 @@ namespace DataLayer.Oracle.Providers
                     var cursor = OracleHelpers.MapDataToList<T>(ref reader);
                     listOfT = cursor;
                 }
-
-                //foreach (var parameter in param.OutputParameters.Where(p => p.Item2 is OracleDataReader))
-                //{
-                //    IDataReader reader = (OracleDataReader)parameter.Item2;
-                //    var cursor = OracleHelpers.MapDataToList<T>(ref reader);
-                //    listOfT = cursor;
-                //}
             }
             catch (Exception e)
             {

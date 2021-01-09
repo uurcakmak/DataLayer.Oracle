@@ -3,7 +3,7 @@ using Oracle.ManagedDataAccess.Client;
 
 namespace DataLayer.Oracle.Providers
 {
-    interface IDatabaseProvider
+    interface IDatabaseProvider<T> where T : class
     {
         public void SetUser(int userId);
 
@@ -21,6 +21,6 @@ namespace DataLayer.Oracle.Providers
 
         public void EvaluateError(ref OracleCommand cmd, string returnMsg);
 
-        public string GetReturnMessage(ref OracleCommand cmd);
+        public ResponseList<T> ExecuteReader<T>(ParameterCollection param, bool setUser = true) where T : class;
     }
 }

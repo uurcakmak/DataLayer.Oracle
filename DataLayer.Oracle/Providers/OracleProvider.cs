@@ -1,13 +1,18 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
+using System.Reflection;
 using DataLayer.Oracle.Model;
 using Oracle.ManagedDataAccess.Client;
 // ReSharper disable InconsistentNaming
 
 namespace DataLayer.Oracle.Providers
 {
-    public class OracleProvider : IDatabaseProvider
+    public class OracleProvider
     {
         internal const int cReturnMsgIndx = 0;
         private const string cParamReturn = "RETURN_VALUE";
@@ -38,6 +43,7 @@ namespace DataLayer.Oracle.Providers
 
             conn.ConnectionString = ConnectionString;
             conn.Open();
+            conn.BeginTransaction();
             if (conn.State == ConnectionState.Open && setUser)
             {
                 throw new NotImplementedException("Set user function will be added in the future");
@@ -46,7 +52,7 @@ namespace DataLayer.Oracle.Providers
             return conn;
         }
 
-        public OracleCommand InitializeCommand(bool setUser, ParameterCollection param)
+        public OracleCommand InitializeCommand(ParameterCollection param, bool setUser = false)
         {
             if (param == null)
             {
@@ -54,7 +60,7 @@ namespace DataLayer.Oracle.Providers
             }
 
             var conn = CreateOpenConnection(setUser);
-            OracleCommand cmd = null;
+            OracleCommand cmd;
 
             try
             {
@@ -81,7 +87,7 @@ namespace DataLayer.Oracle.Providers
             return cmd;
         }
 
-        public OracleCommand InitializeCommand(ref OracleConnection conn, bool setUser, ParameterCollection param)
+        public OracleCommand InitializeCommand(ref OracleConnection conn, ParameterCollection param, bool setUser = false)
         {
             if (param == null)
             {
@@ -124,22 +130,25 @@ namespace DataLayer.Oracle.Providers
             {
                 OracleCommandBuilder.DeriveParameters(cmd);
 
-                foreach (var item in param.InputParameters
-                    .Select((input, index) => new { index, input }))
-                    try
-                    {
-                        object paramValue = DBNull.Value;
-                        if (item.input.Item2 != null)
+                if (param.InputParameters != null)
+                {
+                    foreach (var item in param.InputParameters
+                        .Select((input, index) => new { index, input }))
+                        try
                         {
-                            paramValue = item.input.Item2;
+                            object paramValue = DBNull.Value;
+                            if (item.input.Item2 != null)
+                            {
+                                paramValue = item.input.Item2;
+                            }
+                            cmd.Parameters[item.input.Item1].Value = paramValue;
+                            cmd.Parameters[item.input.Item1].Direction = ParameterDirection.Input;
                         }
-                        cmd.Parameters[item.input.Item1].Value = paramValue;
-                        cmd.Parameters[item.input.Item1].Direction = ParameterDirection.Input;
-                    }
-                    catch (Exception)
-                    {
-                        cmd.Parameters[item.input.Item1].Value = DBNull.Value;
-                    }
+                        catch (Exception)
+                        {
+                            cmd.Parameters[item.input.Item1].Value = DBNull.Value;
+                        }
+                }
             }
             catch (Exception e)
             {
@@ -163,8 +172,8 @@ namespace DataLayer.Oracle.Providers
             else
                 cmd.Transaction?.Rollback();
         }
-
-        public string GetReturnMessage(ref OracleCommand cmd)
+        
+        private string GetReturnMessage(ref OracleCommand cmd)
         {
             var returnMsg = string.Empty;
             try
@@ -186,5 +195,209 @@ namespace DataLayer.Oracle.Providers
             }
             return returnMsg;
         }
+        
+        private void GetOutParamValueList(ref OracleCommand cmd, ref ParameterCollection param)
+        {
+            if (param.OutputParameters != null)
+            {
+                var outParameters = new List<Tuple<string, object>>();
+                foreach (var parameter in param.OutputParameters)
+                {
+                    string paramName = parameter.Item1;
+                    object paramValue = string.Empty;
+                    if (!string.IsNullOrEmpty(paramName))
+                    {
+                        if (cmd.Parameters[paramName].Value != DBNull.Value)
+                        {
+                            paramValue = cmd.Parameters[paramName].Value;
+                        }
+
+                        outParameters.Add(new Tuple<string, object>(paramName, paramValue));
+                    }
+                }
+
+                param.OutputParameters = outParameters;
+            }
+        }
+
+        public ResponseList<T> ExecuteReader<T>(ref ParameterCollection param, bool setUser = false) where T : class, new()
+        {
+            var returnMsg = string.Empty;
+            var conn = CreateOpenConnection(setUser);
+            var cmd = InitializeCommand(ref conn, param, setUser);
+            ResponseList<T> response;
+            try
+            {
+                AssignCommandParams(ref cmd, param);
+                IDataReader reader = cmd.ExecuteReader();
+
+                var list = OracleHelpers.MapDataToList<T>(ref reader);
+                returnMsg = GetReturnMessage(ref cmd);
+                response = new ResponseList<T>(list, returnMsg);
+            }
+            catch (Exception e)
+            {
+                response = new ResponseList<T>(null, e.Message);
+            }
+            finally
+            {
+                DisposeAndCloseConn(ref conn, ref cmd, returnMsg);
+
+            }
+
+            return response;
+        }
+
+        public BasicResponse ExecuteBasicStoredProcedure(ref ParameterCollection param, bool setUser = false)
+        {
+            var returnMsg = string.Empty;
+            var conn = CreateOpenConnection(setUser);
+            var cmd = InitializeCommand(ref conn, param, setUser);
+            BasicResponse response;
+
+            try
+            {
+                AssignCommandParams(ref cmd, param);
+                cmd.ExecuteNonQuery();
+                returnMsg = GetReturnMessage(ref cmd);
+                GetOutParamValueList(ref cmd, ref param);
+            }
+            catch (Exception e)
+            {
+                returnMsg = e.Message;
+            }
+            finally
+            {
+                response = new BasicResponse(returnMsg);
+                DisposeAndCloseConn(ref conn, ref cmd, returnMsg);
+            }
+
+            return response;
+        }
+
+        public ResponseList<T> ExecuteStoredProcedure<T>(ref ParameterCollection param, bool setUser = false) where T : class, new()
+        {
+            var returnMsg = string.Empty;
+            var conn = CreateOpenConnection(setUser);
+            var cmd = InitializeCommand(ref conn, param, setUser);
+            ResponseList<T> response;
+            List<T> listOfT = new List<T>();
+
+            try
+            {
+                AssignCommandParams(ref cmd, param);
+                cmd.ExecuteNonQuery();
+                returnMsg = GetReturnMessage(ref cmd);
+                GetOutParamValueList(ref cmd, ref param);
+
+                var outputCursor = param.OutputParameters?.FirstOrDefault(p => p.Item2 is OracleDataReader);
+                if (outputCursor != null)
+                {
+                    IDataReader reader = (OracleDataReader)outputCursor.Item2;
+                    var cursor = OracleHelpers.MapDataToList<T>(ref reader);
+                    listOfT = cursor;
+                }
+
+                //foreach (var parameter in param.OutputParameters.Where(p => p.Item2 is OracleDataReader))
+                //{
+                //    IDataReader reader = (OracleDataReader)parameter.Item2;
+                //    var cursor = OracleHelpers.MapDataToList<T>(ref reader);
+                //    listOfT = cursor;
+                //}
+            }
+            catch (Exception e)
+            {
+                returnMsg = e.Message;
+            }
+            finally
+            {
+                response = new ResponseList<T>(listOfT, returnMsg);
+                DisposeAndCloseConn(ref conn, ref cmd, returnMsg);
+            }
+
+            return response;
+        }
+    }
+
+    static class OracleHelpers
+    {
+        public static List<T> MapDataToList<T>(ref IDataReader dr)
+                where T : new()
+        {
+            var entityType = typeof(T);
+            var entityList = new List<T>();
+            var hashtable = new Hashtable();
+            var properties = entityType.GetProperties();
+            foreach (var info in properties)
+                hashtable[info.Name.ToUpper(new CultureInfo("en-Us"))] = info;
+
+            try
+            {
+                while (dr.Read())
+                {
+                    var newObject = new T();
+                    for (var index = 0; index < dr.FieldCount; index++)
+                    {
+                        var info = (PropertyInfo)
+                            hashtable[dr.GetName(index).ToUpper()];
+                        try
+                        {
+                            if ((info != null) && info.CanWrite)
+                            {
+                                dynamic value = GetTypedValue(ref info, ref dr, index);
+                                if ((value != null) && !value.ToString().Equals(string.Empty))
+                                {
+                                    if (info.PropertyType == typeof(Boolean))
+                                    {
+                                        info.SetValue(newObject, Convert.ToBoolean(value), null);
+                                    }
+                                    else
+                                    {
+                                        info.SetValue(newObject, value, null);
+                                    }
+                                }
+
+
+                            }
+                        }
+                        catch (Exception exc)
+                        {
+                            Trace.WriteLine("Property Mapping Error. Property Name: " + dr.GetName(index).ToUpper() + " Error message: " + exc.Message);
+                        }
+                    }
+                    entityList.Add(newObject);
+                }
+            }
+            finally
+            {
+                dr.Close();
+            }
+
+            return entityList;
+        }
+
+        private static dynamic GetTypedValue(ref PropertyInfo info, ref IDataReader dr, int index)
+        {
+            dynamic value;
+            if ((info.PropertyType == typeof(byte)) || (info.PropertyType == typeof(byte?)))
+                value = !dr.GetValue(index).Equals(DBNull.Value) ? (dynamic)dr.GetByte(index) : DBNull.Value;
+            else if ((info.PropertyType == typeof(int)) || (info.PropertyType == typeof(int?)))
+                value = !dr.GetValue(index).Equals(DBNull.Value) ? (dynamic)dr.GetInt32(index) : DBNull.Value;
+            else if ((info.PropertyType == typeof(long)) || (info.PropertyType == typeof(long?)))
+                value = !dr.GetValue(index).Equals(DBNull.Value) ? (dynamic)dr.GetInt64(index) : DBNull.Value;
+            else if ((info.PropertyType == typeof(decimal)) || (info.PropertyType == typeof(decimal?)))
+                value = !dr.GetValue(index).Equals(DBNull.Value) ? (dynamic)dr.GetDecimal(index) : DBNull.Value;
+            else if ((info.PropertyType == typeof(double)) || (info.PropertyType == typeof(double?)))
+                value = !dr.GetValue(index).Equals(DBNull.Value) ? (dynamic)dr.GetDouble(index) : DBNull.Value;
+            else if ((info.PropertyType == typeof(short)) || (info.PropertyType == typeof(short?)))
+                value = !dr.GetValue(index).Equals(DBNull.Value) ? (dynamic)dr.GetInt16(index) : string.Empty;
+            else if ((info.PropertyType == typeof(short)) || (info.PropertyType == typeof(short?)))
+                value = !dr.GetValue(index).Equals(DBNull.Value) ? (dynamic)dr.GetInt16(index) : string.Empty;
+            else
+                value = !dr.GetValue(index).Equals(DBNull.Value) ? dr.GetValue(index) : string.Empty;
+
+            return value;
+        }
+
     }
 }

@@ -22,6 +22,22 @@ namespace DataLayer.Oracle.Providers
 
         private string ConnectionString { get; set; }
 
+        public OracleProvider()
+        {
+
+        }
+
+        public OracleProvider(int userId)
+        {
+            SetUser(userId);
+        }
+
+        public OracleProvider(int userId, string connStr)
+        {
+            SetUser(userId);
+            SetConnectionString(connStr);
+        }
+
         public void SetUser(int userId)
         {
             UserId = userId;

@@ -14,5 +14,7 @@
         public string ResultCode { get; set; } = string.Empty;
 
         public string ResultMessage { get; set; } = string.Empty;
+
+        public bool Result => string.IsNullOrEmpty(ResultMessage);
     }
 }

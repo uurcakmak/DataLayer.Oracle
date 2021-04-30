@@ -17,6 +17,7 @@ namespace DataLayer.Oracle.Providers
         internal const int cReturnMsgIndx = 0;
         private const string cParamReturn = "RETURN_VALUE";
         public const string cNullValue = "NULL";
+        public string SetUserSP { get; set; }
 
         private int UserId { get; set; }
 
@@ -27,20 +28,21 @@ namespace DataLayer.Oracle.Providers
 
         }
 
-        public OracleProvider(int userId)
+        public OracleProvider(int userId, string setUserSp)
         {
-            SetUser(userId);
+            SetUser(userId, setUserSp);
         }
 
-        public OracleProvider(int userId, string connStr)
+        public OracleProvider(int userId, string setUserSp, string connStr)
         {
-            SetUser(userId);
+            SetUser(userId, setUserSp);
             SetConnectionString(connStr);
         }
 
-        public void SetUser(int userId)
+        public void SetUser(int userId, string setUserSp)
         {
             UserId = userId;
+            SetUserSP = setUserSp;
         }
 
         public void SetConnectionString(string connStr)
@@ -62,7 +64,21 @@ namespace DataLayer.Oracle.Providers
             conn.BeginTransaction();
             if (conn.State == ConnectionState.Open && setUser)
             {
-                throw new NotImplementedException("Set user function will be added in the future");
+                var setUserCmd = new OracleCommand(SetUserSP, conn)
+                {
+                    CommandType = CommandType.StoredProcedure,
+                    Parameters = { new OracleParameter("INUSERID", OracleDbType.Varchar2, ParameterDirection.Input)
+                    {
+                        ParameterName = "INUSERID",
+                        Direction = ParameterDirection.Input,
+                        OracleDbType = OracleDbType.Int32,
+                        Value = this.UserId
+                    } },
+                    Transaction = conn.BeginTransaction()
+                };
+                
+                var response = setUserCmd.ExecuteNonQuery();
+                setUserCmd.Transaction.Commit();
             }
 
             return conn;

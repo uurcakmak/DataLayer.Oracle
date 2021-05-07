@@ -18,6 +18,7 @@ namespace DataLayer.Oracle.Providers
         private const string cParamReturn = "RETURN_VALUE";
         public const string cNullValue = "NULL";
         public string SetUserSP { get; set; }
+        public string SetUserInputParamName { get; set; } = "INUSERID";
 
         private int UserId { get; set; }
 
@@ -28,21 +29,22 @@ namespace DataLayer.Oracle.Providers
 
         }
 
-        public OracleProvider(int userId, string setUserSp)
+        public OracleProvider(int userId, string setUserSp, string setUserInputParam)
         {
-            SetUser(userId, setUserSp);
+            SetUser(userId, setUserSp, setUserInputParam);
         }
 
-        public OracleProvider(int userId, string setUserSp, string connStr)
+        public OracleProvider(int userId, string setUserSp, string setUserInputParam, string connStr)
         {
-            SetUser(userId, setUserSp);
+            SetUser(userId, setUserSp, setUserInputParam);
             SetConnectionString(connStr);
         }
 
-        public void SetUser(int userId, string setUserSp)
+        public void SetUser(int userId, string setUserSp, string setUserInputParam)
         {
             UserId = userId;
             SetUserSP = setUserSp;
+            SetUserInputParamName = setUserInputParam;
         }
 
         public void SetConnectionString(string connStr)
@@ -64,18 +66,13 @@ namespace DataLayer.Oracle.Providers
             conn.BeginTransaction();
             if (conn.State == ConnectionState.Open && setUser)
             {
-                var setUserCmd = new OracleCommand(SetUserSP, conn)
-                {
-                    CommandType = CommandType.StoredProcedure,
-                    Parameters = { new OracleParameter("INUSERID", OracleDbType.Varchar2, ParameterDirection.Input)
-                    {
-                        ParameterName = "INUSERID",
-                        Direction = ParameterDirection.Input,
-                        OracleDbType = OracleDbType.Int32,
-                        Value = this.UserId
-                    } }
-                };
+                var setUserCmd = new OracleCommand(SetUserSP, conn);
+                setUserCmd.CommandType = CommandType.StoredProcedure;
+
+                setUserCmd.Parameters.Add(cParamReturn, OracleDbType.Varchar2, ParameterDirection.ReturnValue);
+                setUserCmd.Parameters.Add(SetUserInputParamName, OracleDbType.Decimal, this.UserId, ParameterDirection.Input);
                 
+
                 var response = setUserCmd.ExecuteNonQuery();
                 setUserCmd.Transaction.Commit();
             }

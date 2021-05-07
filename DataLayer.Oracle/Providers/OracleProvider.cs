@@ -73,8 +73,7 @@ namespace DataLayer.Oracle.Providers
                         Direction = ParameterDirection.Input,
                         OracleDbType = OracleDbType.Int32,
                         Value = this.UserId
-                    } },
-                    Transaction = conn.BeginTransaction()
+                    } }
                 };
                 
                 var response = setUserCmd.ExecuteNonQuery();

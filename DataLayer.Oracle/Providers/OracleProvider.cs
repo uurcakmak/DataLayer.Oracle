@@ -340,8 +340,33 @@ namespace DataLayer.Oracle.Providers
         }
     }
 
-    static class OracleHelpers
+    public static class OracleHelpers
     {
+        private const string cParamReturn = "RETURN_VALUE";
+
+        public static string GetReturnMessage(ref OracleCommand cmd)
+        {
+            var returnMsg = string.Empty;
+            try
+            {
+                if (cmd.Parameters.Contains(cParamReturn))
+                {
+                    var firstOrDefault = cmd.Parameters
+                        .Cast<OracleParameter>()
+                        .FirstOrDefault(p => p.ParameterName == cParamReturn);
+                    if (firstOrDefault != null)
+                        returnMsg =
+                            firstOrDefault
+                                .Value.ToString();
+                }
+            }
+            catch (Exception)
+            {
+                returnMsg = string.Empty;
+            }
+            return returnMsg;
+        }
+
         public static List<T> MapDataToList<T>(ref IDataReader dr)
                 where T : new()
         {

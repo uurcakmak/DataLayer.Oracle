@@ -1,10 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <CodeAnalysisRuleSet>..\.sonarlint\datalayer.oraclecsharp.ruleset</CodeAnalysisRuleSet>
     <Authors>Uğur Çakmak</Authors>
-    <Description>.NET 5.0 based DataLayer implementation for Oracle Databases. Contains ExecQuery, ExecNonQuery and ExecReader wrappers.</Description>
+    <Description>.NET 6.0 based DataLayer implementation for Oracle Databases. Contains ExecQuery, ExecNonQuery and ExecReader wrappers.</Description>
     <PackageTags>Oracle DataLayer</PackageTags>
     <SonarQubeTestProject>False</SonarQubeTestProject>
   </PropertyGroup>
